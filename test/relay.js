@@ -11,6 +11,7 @@ describe("contracts/Registry", function() {
   beforeEach(async function() {
     this.forwarder = await deploy('MinimalForwarder2'); // relayer contract 
     this.registry = await deploy("Registry", this.forwarder.address);    
+    this.batchRelayer = await deploy("BatchRelayer", this.forwarder.address);
     this.accounts = await ethers.getSigners();
   });
 
@@ -39,13 +40,19 @@ describe("contracts/Registry", function() {
       to: registry.address,
       data: registry.interface.encodeFunctionData('register', ['meta-txs']),
     });
+    // const { request2, signature2 } = await signMetaTxRequest(privateKeyOfSigner, forwarder, {
+    //   from: signer.address,
+    //   to: registry.address,
+    //   data: registry.interface.encodeFunctionData('register', ['meta-txs']),
+    // });
     // we call the forawarder to execute the txn. we pay gas fees for txn here
     console.log('balance before', await relayer.getBalance());
     console.log('balance before', await forwarder.getBalance());
     
-    await forwarder.execute(request, signature).then(tx => tx.wait());
+    await this.batchRelayer.relayBatch([request], [signature]).then(tx => tx.wait());
     console.log('balance aft', await relayer.getBalance());
     console.log('balance aft', await forwarder.getBalance());
+
 
     expect(await registry.owners('meta-txs')).to.equal(signer.address);
     expect(await registry.names(signer.address)).to.equal('meta-txs');
