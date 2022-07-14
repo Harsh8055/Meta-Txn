@@ -11,8 +11,8 @@ describe("contracts/Registry", function() {
   beforeEach(async function() {
     this.forwarder = await deploy('MinimalForwarder2'); // relayer contract 
     this.registry = await deploy("Registry", this.forwarder.address);    
-    this.batchRelayer = await deploy("BatchRelayer", this.forwarder.address);
     this.accounts = await ethers.getSigners();
+    this.token = await deploy("MyToken", "d", "fd", this.forwarder.address)
   });
 
   it("registers a name directly", async function() {
@@ -37,24 +37,30 @@ describe("contracts/Registry", function() {
 // user signs the txn with his private key
     const { request, signature } = await signMetaTxRequest(privateKeyOfSigner, forwarder, {
       from: signer.address,
-      to: registry.address,
-      data: registry.interface.encodeFunctionData('register', ['meta-txs']),
+      to: this.token.address,
+      data: this.token.interface.encodeFunctionData('mint', [signer.address, 1]),
     });
-    // const { request2, signature2 } = await signMetaTxRequest(privateKeyOfSigner, forwarder, {
-    //   from: signer.address,
-    //   to: registry.address,
-    //   data: registry.interface.encodeFunctionData('register', ['meta-txs']),
-    // });
+    console.log(request,'signature', signature);
+
+    const { request2, signature2 } = await signMetaTxRequest(privateKeyOfSigner, forwarder, {
+      from: signer.address,
+      to: registry.address,
+      data: registry.interface.encodeFunctionData('register', ['meta-txs3']),
+    });
     // we call the forawarder to execute the txn. we pay gas fees for txn here
     console.log('balance before', await relayer.getBalance());
-    console.log('balance before', await forwarder.getBalance());
+    // console.log('balance before', await forwarder.getBalance());
+    console.log(request2,'signature2', signature2);
     
-    await this.batchRelayer.relayBatch([request], [signature]).then(tx => tx.wait());
+    
+    let batchRelay =  await forwarder.relayBatch([request], [signature]);
+    await batchRelay.wait()
+    // await this.batchRelayer.relayBatch([request, request2], [signature, signature2]).then(tx => tx.wait());
     console.log('balance aft', await relayer.getBalance());
-    console.log('balance aft', await forwarder.getBalance());
+    // console.log('balance aft', await forwarder.getBalance());
 
 
-    expect(await registry.owners('meta-txs')).to.equal(signer.address);
-    expect(await registry.names(signer.address)).to.equal('meta-txs');
+    // expect(await registry.owners('meta-txs')).to.equal(signer.address);
+    // expect(await registry.names(signer.address)).to.equal('meta-txs');
   });
 });
