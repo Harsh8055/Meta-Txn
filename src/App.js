@@ -3,7 +3,10 @@ import { ethers } from "ethers";
 // import { Web3 } from "web3.js-browser";
 import Axios from "axios"
 import abii  from "./abi.json";
-import registry from "./reg.json"
+// import registry from "./reg.json"
+import Mytoken from "./token.json";
+import sigUtil from 'eth-sig-util';
+
 function App() {
 
 
@@ -26,28 +29,27 @@ await provider.send("eth_requestAccounts", []);
 // send ether and pay to change state within the blockchain.
 // For this, you need the account signer...
 const signer = provider.getSigner()  
-console.log('address', await signer.getAddress());
+let address = await signer.getAddress();
+console.log('address', address);
 
 // 31337// REGISTRY - 0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512
 
 const forwarderContract = new ethers.Contract("0x5FbDB2315678afecb367f032d93F642f64180aa3", abii.abi, signer);
-const reg = new ethers.Contract("0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512", registry.abi, signer);
-console.log('', provider);
+// const reg = new ethers.Contract("0x8A791620dd6260079BF849Dc5567aDC3F2FdC318", registry.abi, signer);
+const mytoken = new ethers.Contract("0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0", Mytoken.abi, signer);
 
-// const nonce = await forwarderContract.getNonce(await signer.getAddress());
-// console.log('nonce', nonce);
+
+const nonce = await forwarderContract.getNonce(await signer.getAddress());
+console.log('nonce', Number(nonce));
 
 const { request, signature } = await signMetaTxRequest(signer, forwarderContract, {
-  from: await signer.getAddress(),
-  to: "0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512",
-  data: reg.interface.encodeFunctionData('register', ['meta-txs']),
+  from: address,
+  to: mytoken.address,
+  data: mytoken.interface.encodeFunctionData('mint', [address, 1]),
 });
 
 console.log('re', request, signature);
   
-
-
-
 }
 
 
@@ -63,7 +65,6 @@ function submit(req, sig) {
   })
 
 }
-
 
 const EIP712Domain = [
   { name: 'name', type: 'string' },
@@ -81,7 +82,6 @@ const ForwardRequest = [
   { name: 'data', type: 'bytes' },
 ];
 
-
 function getMetaTxTypeData(chainId, verifyingContract) {
   return {
     types: {
@@ -98,15 +98,25 @@ function getMetaTxTypeData(chainId, verifyingContract) {
   }
 };
 
+// async function signTypedData(signer, from, data) {
+//   // If signer is a private key, use it to sign
+//   if (typeof(signer) === 'string') {
+//     const privateKey = Buffer.from(signer.replace(/^0x/, ''), 'hex');
+//     return ethSigUtil.signTypedMessage(privateKey, { data });
+//   }
+
+//   // Otherwise, send the signTypedData RPC call
+//   // Note that hardhatvm and metamask require different EIP712 input
+//   const isHardhat = data.domain.chainId == 31337;
+//   const [method, argData] = isHardhat
+//     ? ['eth_signTypedData', data]
+//     : ['eth_signTypedData_v4', JSON.stringify(data)]
+//   return await signer.send(method, [from, argData]);
+// }
 
 async function buildRequest(forwarder, input) {
-  console.log('a', input.from);
-  
-  // const nonce = await forwarder.getNonce(input.from);
-  // console.log('nonce', nonce);
- let nonce = 0;
-  
-  return { value: 0, gas: 1e6, nonce , ...input };
+  const nonce = await forwarder.getNonce(input.from).then(nonce => nonce.toString());
+  return { value: 0, gas: 1e6, nonce, ...input };
 }
 
 async function buildTypedData(forwarder, request) {
@@ -114,7 +124,6 @@ async function buildTypedData(forwarder, request) {
   const typeData = getMetaTxTypeData(chainId, forwarder.address);
   return { ...typeData, message: request };
 }
-
 
 async function signMetaTxRequest(signer, forwarder, input) {
   console.log('-------a');
@@ -128,9 +137,8 @@ async function signMetaTxRequest(signer, forwarder, input) {
 
     let sig = await window.ethereum.request(
     {
-        method: "eth_signTypedData_v3",
+        method: "eth_signTypedData_v4",
         params: [await signer.getAddress(), JSON.stringify(toSign)],
-        from: signer
     },
     function(err, result) {
         if (err) {
@@ -142,14 +150,27 @@ async function signMetaTxRequest(signer, forwarder, input) {
         // const r = "0x" + signature.substring(0, 64);
         // const s = "0x" + signature.substring(64, 128);
         // const v = parseInt(signature.substring(128, 130), 16);
-        // The signature is now comprised of r, s, and v.
+        // The signature is now comprised of r, s, and         
+
+
         }
       );
   // let signature = await signer._signTypedData(toSign.domain, toSign.types, request);
  
-  console.log('sig', sig);
+  console.log('sig', sig, "req--", request);
+
+  let recover = await forwarder.verify(request, sig);
+  console.log('recover', recover);
+  
   submit(request, sig);
 
+  
+  // const recovered =  sigUtil.recoverTypedSignature_v4({
+  //   data: toSign,
+  //   sig: sig,
+  // });
+  // console.log('recoverd', recovered);
+  
   
   return { request, sig };  
 }
@@ -188,11 +209,18 @@ console.log("Transaction hash : ", tx); */
 
 
   return (
-    <div className="App">
+    <div className="App" style={{ marginRight: '20px' }}>
       
           {/* <input type="text" id="input" placeholder="name"> */}
-          <input type="text" id="input" />
-        <button id="sign" onClick={sign}> Send txn </button>
+          {/* <input type="number" id="input" /> */}
+        <button id="sign" 
+        style={{
+        marginLeft: '660px',
+        marginTop: '300px',
+        width: '50px',
+        height: '50px',
+        backgroundColor: 'yellow',
+      }} onClick={sign}> Mint </button>
        
     </div>
   );
