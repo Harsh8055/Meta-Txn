@@ -5,7 +5,10 @@ import Axios from "axios"
 import abii  from "./abi.json";
 // import registry from "./reg.json"
 import Mytoken from "./token.json";
-import sigUtil from 'eth-sig-util';
+// import sigUtil from 'eth-sig-util';
+// import react from "react-scripts";
+import addresses from "./add.json"
+// import dotenv from "dotenv";
 
 function App() {
 
@@ -30,13 +33,13 @@ await provider.send("eth_requestAccounts", []);
 // For this, you need the account signer...
 const signer = provider.getSigner()  
 let address = await signer.getAddress();
-console.log('address', address);
+console.log('address', address, addresses.Forwarder);
 
 // 31337// REGISTRY - 0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512
 
-const forwarderContract = new ethers.Contract("0x5FbDB2315678afecb367f032d93F642f64180aa3", abii.abi, signer);
+const forwarderContract = new ethers.Contract(addresses.Forwarder, abii.abi, signer);
 // const reg = new ethers.Contract("0x8A791620dd6260079BF849Dc5567aDC3F2FdC318", registry.abi, signer);
-const mytoken = new ethers.Contract("0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0", Mytoken.abi, signer);
+const mytoken = new ethers.Contract(addresses.Token, Mytoken.abi, signer);
 
 
 const nonce = await forwarderContract.getNonce(await signer.getAddress());
@@ -53,12 +56,13 @@ console.log('re', request, signature);
 }
 
 
-function submit(req, sig) {
+function submit(req, sig, toSign) {
   console.log('---', {req, sig});
   
   Axios.post(url, {
     request: req, 
-    signature: sig
+    signature: sig,
+    toSign
   }).then(res => {
     console.log('res', res.data);
     
@@ -161,17 +165,17 @@ async function signMetaTxRequest(signer, forwarder, input) {
 
   let recover = await forwarder.verify(request, sig);
   console.log('recover', recover);
-  
-  submit(request, sig);
 
+
+  // let privKey = "0x5de4111afa1a4b94908f83103eb1f1706367c2e68ca870fc3fb9a804cdab365a";
+  // const privateKey = Buffer.from(privKey.replace(/^0x/, ''), 'hex');
+  // // console.log('data', data);
   
-  // const recovered =  sigUtil.recoverTypedSignature_v4({
-  //   data: toSign,
-  //   sig: sig,
-  // });
-  // console.log('recoverd', recovered);
+  // let sig2 =  sigUtil.signTypedData_v4(privateKey, { toSign });
+  // console.log('sig2', sig2);
   
-  
+  submit(request, sig, toSign);
+
   return { request, sig };  
 }
 
