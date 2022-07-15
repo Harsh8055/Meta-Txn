@@ -3,6 +3,8 @@ const schedule = require("node-schedule");
 var cors = require('cors')
 // const { MongoClient, ServerApiVersion } = require('mongodb');
 const fs = require("fs");
+require('dotenv').config();
+
 
 let Requests = require("./api/model/req");
 // const mongoose = require("mongoose");
@@ -15,7 +17,9 @@ let json = fs.readFileSync(abi_path);
 let abi = JSON.parse(json).abi;
 
 
-let forwarderAdd = "0x5FbDB2315678afecb367f032d93F642f64180aa3";
+let forwarderAdd = process.env.FORWARDER_ADDRESS;
+console.log('forwarder address', forwarderAdd);
+
 
 let PrivateKey = "0xf214f2b2cd398c806f84e317254e0f0b801d0643303237d97a22a48e01628897"; // env (xxx) hardhat locolnet key
 let provider = "https://polygon-mumbai.g.alchemy.com/v2/kV8qIfhZYAYxIzeQrxfHrso9_R-ITP4y";
@@ -52,15 +56,27 @@ return verify
 
 
 const relay = async function (req, res, next) {
-    schedule.scheduleJob("*/59 * * * * *", () => {
-        console.log('i ran');
+    schedule.scheduleJob("*/59 * * * * *", async () => {
+    if(allRequests.length > 0);
+     let allReq;
+     let allSig;
+      for (let index = 0; index < allRequests.length; index++) {
+        allReq.push(allRequests[index].request);
+        allSig.push(allRequests[index].signature);
+      }
+
+      let relayBatch = await contractForwarder.relayBatch(allReq, allSig);
+      await relayBatch.wait();
+      allRequests = [];
+      console.log('done', allRequests);
+      
     })
     next()
   }
 
   app.use(relay);
   app.use(cors()) // Use this after the variable declaration
-
+   
 
 app.use(express.static("public"));
 app.get('/', (req, res) => {
@@ -71,10 +87,11 @@ app.get('/', (req, res) => {
 app.post("/", async (req, res) => {
   console.log('req', req.body);
   console.log('bal', await managerWallet.getBalance());
-
+  
 
   if(verifyTxn(req.body.request, req.body.signature)) {
   allRequests.push(req.body);
+  
   }
   console.log('all request', allRequests.length,allRequests);
   
